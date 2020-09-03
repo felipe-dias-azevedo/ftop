@@ -1,4 +1,15 @@
 import psutil, time, sys, os
+
+def convert(infoSaida, tipoDado):
+	if tipoDado >= 1000 and tipoDado < 1000000:
+		KB = round((tipoDado / (2**10)))
+		print(infoSaida, KB, "KB/s")
+	elif tipoDado >= 1000000:
+		MB = round((tipoDado / (2**20)),2)
+		print(infoSaida, MB, "MB/s")		
+	else:
+		print(infoSaida, tipoDado, "Bytes/s")
+
 def main():
 	sistema = sys.platform
 	lidaAntiga = psutil.disk_io_counters()
@@ -40,24 +51,10 @@ def main():
 		lidaAtual = psutil.disk_io_counters()
 
 		BytesLidos = round((lidaAtual[2] - lidaAntiga[2]))
-		if BytesLidos >= 1000 and BytesLidos < 1000000:
-			KBlidos = round((BytesLidos / (2**10)))
-			print("\nLeitura do HD:", KBlidos, "KB/s")
-		elif BytesLidos >= 1000000:
-			MBlidos = round((BytesLidos / (2**20)),2)
-			print("\nLeitura do HD:", MBlidos, "MB/s")		
-		else:
-			print("\nLeitura do HD:", BytesLidos, "Bytes/s")
+		convert("\nLeitura do HD:", BytesLidos)
 
 		BytesEscritos = round((lidaAtual[3] - lidaAntiga[3]))
-		if BytesEscritos >= 1000 and BytesEscritos < 1000000:
-			KBescritos = round((BytesEscritos / (2**10)))
-			print("Escritura do HD:", KBescritos, "KB/s")
-		elif BytesEscritos >= 1000000:
-			MBescritos = round((BytesEscritos / (2**20)),2)
-			print("Escritura do HD:", MBescritos, "MB/s")
-		else:
-			print("Escritura do HD:", BytesEscritos, "Bytes/s")
+		convert("Escritura do HD:", BytesEscritos)
 		
 		lidaAntiga = lidaAtual
 
@@ -70,27 +67,13 @@ def main():
 		netAtual = psutil.net_io_counters()
 
 		BytesRecebidos = round((netAtual[0] - netAntiga[0]))
-		if BytesRecebidos >= 1000 and BytesRecebidos < 1000000:
-			KBRecebidos = round((BytesRecebidos / (2**10)))
-			print("\nTaxa Download:", KBRecebidos, "KB/s")
-		elif BytesRecebidos >= 1000000:
-			MBRecebidos = round((BytesRecebidos / (2**20)),2)
-			print("\nTaxa Download:", MBRecebidos, "MB/s")		
-		else:
-			print("\nTaxa Download:", BytesRecebidos, "Bytes/s")
+		convert("\nTaxa Download:", BytesRecebidos)
 
 		BytesEnviados = round((netAtual[1] - netAntiga[1]))
-		if BytesEnviados >= 1000 and BytesEnviados < 1000000:
-			KBEnviados = round((BytesEnviados / (2**10)))
-			print("Taxa Upload:", KBEnviados, "KB/s")
-		elif BytesEnviados >= 1000000:
-			MBEnviados = round((BytesEnviados / (2**20)),2)
-			print("Taxa Upload:", MBEnviados, "MB/s")		
-		else:
-			print("Taxa Upload:", BytesEnviados, "Bytes/s")
+		convert("Taxa Upload:", BytesEnviados)
 		
 		netAntiga = netAtual
 
 		print("----------------------------------------------------------------------")
-			
+	
 main()
