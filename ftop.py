@@ -60,16 +60,16 @@ def main():
 
 		infoHD = psutil.disk_partitions()
 		for part in range(len(infoHD)):
-			if ('snap' not in infoHD[part][1]):
+			if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
 				usoHD = psutil.disk_usage(infoHD[part][1])
 				print("Ocupação de", infoHD[part][1], "em", infoHD[part][0], ":", usoHD[3], "%")
 			
 		netAtual = psutil.net_io_counters()
 
-		BytesRecebidos = round((netAtual[0] - netAntiga[0]))
+		BytesRecebidos = round((netAtual[1] - netAntiga[1]))
 		convert("\nTaxa Download:", BytesRecebidos)
 
-		BytesEnviados = round((netAtual[1] - netAntiga[1]))
+		BytesEnviados = round((netAtual[0] - netAntiga[0]))
 		convert("Taxa Upload:", BytesEnviados)
 		
 		netAntiga = netAtual
