@@ -25,6 +25,8 @@ def verificarWSL():
 	if sys.platform == 'linux':
 		if 'Microsoft' in os.uname()[2]:
 			return True
+		else:
+			return False
 	else:
 		return False
 
