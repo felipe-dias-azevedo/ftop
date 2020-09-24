@@ -21,6 +21,13 @@ def clearShellCommand():
 		limpar = 'cls'
 	return limpar
 
+def verificarWSL():
+	if sys.platform == 'linux':
+		if 'Microsoft' in os.uname()[2]:
+			return True
+	else:
+		return False
+
 def condHorario(hora):
 	if 5 <= hora <= 12:
 		condicao_hora = 'manhã'
@@ -42,6 +49,7 @@ def barraUso(uso, valorUso, tamanho = 2, limite = 100, tipo = "%"):
 def main():
 	sistema = sys.platform
 	limparTela = clearShellCommand()
+	isWsl = verificarWSL()
 	os.system(limparTela)
 	lidaAntiga = psutil.disk_io_counters()
 	netAntiga = psutil.net_io_counters()
@@ -59,16 +67,17 @@ def main():
 		qtdTarefas = len(psutil.pids())
 		print(qtdTarefas, "em execução no momento\n")
 
-		if sistema == 'linux':
+		if sistema == 'linux' and not isWsl:
 			tempCPU = psutil.sensors_temperatures(fahrenheit=False)
 			tempCPU = tempCPU.get('coretemp')
 			print("Temperatura do CPU:", int(tempCPU[0][1]), "ºC")
-			
-		freqCPU = psutil.cpu_freq()
-		print("Frequência do CPU:", int(freqCPU[0]), "MHz de", int(freqCPU[2]), "MHz")
+	
+		if not isWsl:
+			freqCPU = psutil.cpu_freq()
+			print("Frequência do CPU:", int(freqCPU[0]), "MHz de", int(freqCPU[2]), "MHz")
 
 		usoCPUs = psutil.cpu_percent(percpu=True)
-		usoAtual = psutil.cpu_percent()
+		#usoAtual = psutil.cpu_percent()
 		#print("\nUso de CPU:  "+barraUso(usoAtual, 3))
 		for nucleo in range(len(usoCPUs)):
 			#print("Núcleo", nucleo, ":",  usoCPUs[nucleo], "%")
@@ -86,40 +95,42 @@ def main():
 		print("Uso do SWAP:", usoGBswap, "GB de", totalGBswap, "GB")
 		print(barraUso(swapRAM[3], swapRAM[3]))
 
-		lidaAtual = psutil.disk_io_counters()
+		if not isWsl:
 
-		BytesLidos = round((lidaAtual[2] - lidaAntiga[2]))
-		#convert("\nLeitura do HD:", BytesLidos)
-		conversaoMetricas = convert(BytesLidos)
-		print("\nLeitura do HD:", conversaoMetricas[0], conversaoMetricas[1])
+			lidaAtual = psutil.disk_io_counters()
 
-		BytesEscritos = round((lidaAtual[3] - lidaAntiga[3]))
-		#convert("Escritura do HD:", BytesEscritos)
-		conversaoMetricas = convert(BytesEscritos)
-		print("Escritura do HD:", conversaoMetricas[0], conversaoMetricas[1])
-		print("")
-		
-		lidaAntiga = lidaAtual
+			BytesLidos = round((lidaAtual[2] - lidaAntiga[2]))
+			#convert("\nLeitura do HD:", BytesLidos)
+			conversaoMetricas = convert(BytesLidos)
+			print("\nLeitura do HD:", conversaoMetricas[0], conversaoMetricas[1])
 
-		infoHD = psutil.disk_partitions()
-		for part in range(len(infoHD)):
-			if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
-				usoHD = psutil.disk_usage(infoHD[part][1])
-				print("Ocupação de", infoHD[part][1], "em", infoHD[part][0], ":", usoHD[3], "%")
+			BytesEscritos = round((lidaAtual[3] - lidaAntiga[3]))
+			#convert("Escritura do HD:", BytesEscritos)
+			conversaoMetricas = convert(BytesEscritos)
+			print("Escritura do HD:", conversaoMetricas[0], conversaoMetricas[1])
+			print("")
 			
-		netAtual = psutil.net_io_counters()
+			lidaAntiga = lidaAtual
 
-		BytesRecebidos = round((netAtual[1] - netAntiga[1]))
-		conversaoMetricas = convert(BytesRecebidos)
-		#convert("\nTaxa Download:", BytesRecebidos)
-		print("\nTaxa Download:", conversaoMetricas[0], conversaoMetricas[1])
+			infoHD = psutil.disk_partitions()
+			for part in range(len(infoHD)):
+				if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
+					usoHD = psutil.disk_usage(infoHD[part][1])
+					print("Ocupação de", infoHD[part][1], "em", infoHD[part][0], ":", usoHD[3], "%")
 
-		BytesEnviados = round((netAtual[0] - netAntiga[0]))
-		conversaoMetricas = convert(BytesEnviados)
-		#convert("Taxa Upload:", BytesEnviados)
-		print("Taxa Upload:", conversaoMetricas[0], conversaoMetricas[1])
-		
-		netAntiga = netAtual
+			netAtual = psutil.net_io_counters()
+
+			BytesRecebidos = round((netAtual[1] - netAntiga[1]))
+			conversaoMetricas = convert(BytesRecebidos)
+			#convert("\nTaxa Download:", BytesRecebidos)
+			print("\nTaxa Download:", conversaoMetricas[0], conversaoMetricas[1])
+
+			BytesEnviados = round((netAtual[0] - netAntiga[0]))
+			conversaoMetricas = convert(BytesEnviados)
+			#convert("Taxa Upload:", BytesEnviados)
+			print("Taxa Upload:", conversaoMetricas[0], conversaoMetricas[1])
+			
+			netAntiga = netAtual
 
 		print("-" * 80)
 	
