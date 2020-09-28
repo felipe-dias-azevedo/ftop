@@ -49,12 +49,14 @@ def barraUso(uso, valorUso, tamanho = 2, limite = 100, tipo = "%"):
 	return barra
 
 def main():
-	sistema = sys.platform
+	# TODO: PERGUNTAR AO USUARIO SE DESEJA VER USO POR CPU OU USO TOTAL
+	sistema = "windows" if sys.platform == 'win32' else sys.platform # TODO: FAZER ISTO PARA TODAS AS PLATAFORMAS
 	limparTela = clearShellCommand()
-	isWsl = verificarWSL()
+	isWsl = verificarWSL() # TODO: REDIRECIONAR PARA VARIAVEL SISTEMA
 	os.system(limparTela)
 	lidaAntiga = psutil.disk_io_counters()
 	netAntiga = psutil.net_io_counters()
+	TempoBoot = psutil.boot_time()
 	loop = True
 	print("\nIniciando as leituras do Hardware no Sistema Operacional", sistema.capitalize(), "\n")
 	while loop:
@@ -64,10 +66,16 @@ def main():
 		#usoAtual = psutil.cpu_percent()
 		#print("Uso atual de CPU: ", usoAtual, "%")
 		
-		print(('0' if horario[3] < 10 else '') + str(horario[3]) + (':0' if horario[4] < 10 else ':') + str(horario[4]), "da", condHorario(horario[3]), "em", sistema.capitalize())
+		#print(('0' if horario[3] < 10 else '') + str(horario[3]) + (':0' if horario[4] < 10 else ':') + str(horario[4]), "da", condHorario(horario[3]), "em", sistema.capitalize())
+		
+		DifTempo = (time.time()) - TempoBoot
+		HorasLigado = int(DifTempo // 3600)
+		MinutosLigado = int((DifTempo // 60)) if HorasLigado < 1 else int((DifTempo - (HorasLigado * 3600)) / 60)
+		SegundosLigado = int((DifTempo)) if MinutosLigado < 1 else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
+		print("Tempo de Boot em " + sistema.capitalize() + ": " + (str(HorasLigado) + ":" + str(MinutosLigado) + ":" + str(SegundosLigado)))
 
 		qtdTarefas = len(psutil.pids())
-		print(qtdTarefas, "em execução no momento\n")
+		print(qtdTarefas, "tarefas em execução no momento\n")
 
 		if sistema == 'linux' and not isWsl:
 			tempCPU = psutil.sensors_temperatures(fahrenheit=False)
@@ -86,15 +94,15 @@ def main():
 			print("Núcleo " + str(int(nucleo)+1) + ": " + barraUso(usoCPUs[nucleo], usoCPUs[nucleo], 4))
 			
 		usoRAM = psutil.virtual_memory()
-		totalGBram = round(usoRAM[0] / (2**30),2)
-		usoGBram = round(((totalGBram) - usoRAM[1] / (2**30)),2)
-		print("\nUso da Memória RAM:", usoGBram, "GB de", totalGBram, "GB")
+		totalram = usoRAM[0]
+		usoGBram = round(((totalram - usoRAM[1]) / (2**30)),2)
+		print("\nUso da Memória RAM:", usoGBram, "GB de", round(totalram / (2**30),2), "GB")
 		print(barraUso(usoRAM[2], usoRAM[2]))
 
 		swapRAM = psutil.swap_memory()
-		totalGBswap = round(swapRAM[0] / (2**30),2)
-		usoGBswap = round(((swapRAM[0] / (2**30)) - swapRAM[2] / (2**30)),2)
-		print("Uso do SWAP:", usoGBswap, "GB de", totalGBswap, "GB")
+		totalswap = swapRAM[0]
+		usoGBswap = round(((swapRAM[0] - swapRAM[2]) / (2**30)),2)
+		print("Uso do SWAP:", usoGBswap, "GB de", round((totalswap / (2**30)),2), "GB")
 		print(barraUso(swapRAM[3], swapRAM[3]))
 
 		if not isWsl:
@@ -114,11 +122,13 @@ def main():
 			
 			lidaAntiga = lidaAtual
 
+			# TODO : SE LINUX: MOSTRAR TOTAL DAS PARTIÇÕES CASO SEJA sda: sda1 + sda2 + sdaN
 			infoHD = psutil.disk_partitions()
 			for part in range(len(infoHD)):
 				if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
 					usoHD = psutil.disk_usage(infoHD[part][1])
-					print("Ocupação de", infoHD[part][1], "em", infoHD[part][0], ":", usoHD[3], "%")
+					print("Ocupação de", infoHD[part][1], (("em" + infoHD[part][0]) if not sistema == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+					print(barraUso(usoHD[3], usoHD[3]))
 
 			netAtual = psutil.net_io_counters()
 
@@ -134,6 +144,6 @@ def main():
 			
 			netAntiga = netAtual
 
-		print("-" * 80)
+		print("-" * os.get_terminal_size()[0])
 	
 main()
