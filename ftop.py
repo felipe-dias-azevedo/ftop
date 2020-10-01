@@ -49,7 +49,6 @@ def barraUso(uso, valorUso, tamanho = 2, limite = 100, tipo = "%"):
 	return barra
 
 def main():
-	# TODO: PERGUNTAR AO USUARIO SE DESEJA VER USO POR CPU OU USO TOTAL
 	sistema = "windows" if sys.platform == 'win32' else sys.platform # TODO: FAZER ISTO PARA TODAS AS PLATAFORMAS
 	limparTela = clearShellCommand()
 	isWsl = verificarWSL() # TODO: REDIRECIONAR PARA VARIAVEL SISTEMA
@@ -58,6 +57,9 @@ def main():
 	netAntiga = psutil.net_io_counters()
 	TempoBoot = psutil.boot_time()
 	loop = True
+	porCPU = input("\nVer percentual de uso de CPUs por núcleo? [Y/n] ")
+	porCPU = True if porCPU.lower() == 'y' else False
+	print("\n", end="")
 	print("\nIniciando as leituras do Hardware no Sistema Operacional", sistema.capitalize(), "\n")
 	while loop:
 		time.sleep(1) # EXECUTA A CADA 1 SEGUNDO
@@ -72,10 +74,10 @@ def main():
 		HorasLigado = int(DifTempo // 3600)
 		MinutosLigado = int((DifTempo // 60)) if HorasLigado < 1 else int((DifTempo - (HorasLigado * 3600)) / 60)
 		SegundosLigado = int((DifTempo)) if MinutosLigado < 1 else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
-		print("Tempo de Boot em " + sistema.capitalize() + ": " + (str(HorasLigado) + ":" + str(MinutosLigado) + ":" + str(SegundosLigado)))
+		print("Uptime em " + sistema.capitalize() + (': 0' if HorasLigado < 10 else ': ') + (str(HorasLigado) + (':0' if MinutosLigado < 10 else ':') + str(MinutosLigado) + (':0' if SegundosLigado < 10 else ':') + str(SegundosLigado)))
 
 		qtdTarefas = len(psutil.pids())
-		print(qtdTarefas, "tarefas em execução no momento\n")
+		print(qtdTarefas, "processos em execução no momento\n")
 
 		if sistema == 'linux' and not isWsl:
 			tempCPU = psutil.sensors_temperatures(fahrenheit=False)
@@ -86,13 +88,14 @@ def main():
 			freqCPU = psutil.cpu_freq()
 			print("Frequência do CPU:", int(freqCPU[0]), "MHz de", int(freqCPU[2]), "MHz")
 
-		usoCPUs = psutil.cpu_percent(percpu=True)
-		#usoAtual = psutil.cpu_percent()
-		#print("\nUso de CPU:  "+barraUso(usoAtual, 3))
-		for nucleo in range(len(usoCPUs)):
-			#print("Núcleo", nucleo, ":",  usoCPUs[nucleo], "%")
-			print("Núcleo " + str(int(nucleo)+1) + ": " + barraUso(usoCPUs[nucleo], usoCPUs[nucleo], 4))
-			
+		if porCPU:
+			usoCPUs = psutil.cpu_percent(percpu=True)
+			for nucleo in range(len(usoCPUs)):
+				print("Núcleo " + str(int(nucleo)+1) + ": " + barraUso(usoCPUs[nucleo], usoCPUs[nucleo], 4))
+		else:
+			usoAtual = psutil.cpu_percent(percpu=False)
+			print("Uso de CPU: " + barraUso(usoAtual, usoAtual, 4))
+
 		usoRAM = psutil.virtual_memory()
 		totalram = usoRAM[0]
 		usoGBram = round(((totalram - usoRAM[1]) / (2**30)),2)
@@ -122,13 +125,32 @@ def main():
 			
 			lidaAntiga = lidaAtual
 
-			# TODO : SE LINUX: MOSTRAR TOTAL DAS PARTIÇÕES CASO SEJA sda: sda1 + sda2 + sdaN
+			sdaLido = False
 			infoHD = psutil.disk_partitions()
 			for part in range(len(infoHD)):
+				ordemNum = 97
 				if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
-					usoHD = psutil.disk_usage(infoHD[part][1])
-					print("Ocupação de", infoHD[part][1], (("em" + infoHD[part][0]) if not sistema == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
-					print(barraUso(usoHD[3], usoHD[3]))
+					usoHD = psutil.disk_usage(infoHD[part][1]) # uso de 'sda1'
+					sdTot = [0]
+
+					if sys.platform == 'linux':
+						for i in range(len(infoHD)):
+							if ('sd' + chr(ordemNum)) in infoHD[i][0]:
+								sdTot[0] += usoHD[1]
+								if 'sda' in infoHD[i][0] and not sdaLido:
+									sdTot[0] += swapRAM[0]
+									sdaLido = True
+									print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) + " :"), round((sdTot[0] - swapRAM[0]) / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+								else:
+									print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) + " :"), round(sdTot[0] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+						usoPercent = round(((1 - ((usoHD[0] - sdTot[0]) / usoHD[0])) * 100),1) #TODO: ARRUMAR QUANDO FOR PARTIÇÃO '/' ADICIONAR O SWAP QUE USA DO DISCO.
+						print(barraUso(usoPercent, usoPercent))
+						ordemNum += 1
+					else:
+						print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) if not sistema == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+						print(barraUso(usoHD[3], usoHD[3]))
+					
+					
 
 			netAtual = psutil.net_io_counters()
 
