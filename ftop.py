@@ -4,31 +4,27 @@ def convert(tipoDado):
 	if tipoDado >= 1000 and tipoDado < 1000000:
 		tipoDado = round((tipoDado / (2**10)))
 		Metrica = "KiB/s"
-		#print(infoSaida, tipoDado, "KiB/s")
 	elif tipoDado >= 1000000:
 		tipoDado = round((tipoDado / (2**20)),2)
-		Metrica = "MiB/s"
-		#print(infoSaida, tipoDado, "MiB/s")		
+		Metrica = "MiB/s"		
 	else:
 		Metrica = "Bytes/s"
-		#print(infoSaida, tipoDado, "Bytes/s")
 	return [tipoDado, Metrica]
 
-def clearShellCommand():
+def calcularSistemaOperacional():
 	if sys.platform == 'linux' or sys.platform == 'darwin':
 		limpar = 'clear'
-	elif sys.platform == 'win32':
-		limpar = 'cls'
-	return limpar
-
-def verificarWSL():
-	if sys.platform == 'linux':
 		if 'Microsoft' in os.uname()[2]:
-			return True
+			tipoSistema = "wsl"
 		else:
-			return False
-	else:
-		return False
+			if sys.platform == 'linux':
+				tipoSistema = sys.platform
+			else:
+				tipoSistema = 'macOS'
+	elif sys.platform == 'win32':
+		tipoSistema = "windows"
+		limpar = 'cls'
+	return {'limpar': limpar, 'tipoSistema': tipoSistema}
 
 def condHorario(hora):
 	if 5 <= hora <= 12:
@@ -49,10 +45,8 @@ def barraUso(uso, valorUso, tamanho = 2, limite = 100, tipo = "%"):
 	return barra
 
 def main():
-	sistema = "windows" if sys.platform == 'win32' else sys.platform # TODO: FAZER ISTO PARA TODAS AS PLATAFORMAS
-	limparTela = clearShellCommand()
-	isWsl = verificarWSL() # TODO: REDIRECIONAR PARA VARIAVEL SISTEMA
-	os.system(limparTela)
+	sistema = calcularSistemaOperacional()
+	os.system(sistema['limpar'])
 	lidaAntiga = psutil.disk_io_counters()
 	netAntiga = psutil.net_io_counters()
 	TempoBoot = psutil.boot_time()
@@ -60,32 +54,30 @@ def main():
 	porCPU = input("\nVer percentual de uso de CPUs por núcleo? [Y/n] ")
 	porCPU = True if porCPU.lower() == 'y' else False
 	print("\n", end="")
-	print("\nIniciando as leituras do Hardware no Sistema Operacional", sistema.capitalize(), "\n")
+	print("\nIniciando as leituras do Hardware no Sistema Operacional", sistema['tipoSistema'].capitalize(), "\n")
 	while loop:
 		time.sleep(1) # EXECUTA A CADA 1 SEGUNDO
 		horario = time.localtime()
-		os.system(limparTela)
-		#usoAtual = psutil.cpu_percent()
-		#print("Uso atual de CPU: ", usoAtual, "%")
+		os.system(sistema['limpar'])
 		
 		#print(('0' if horario[3] < 10 else '') + str(horario[3]) + (':0' if horario[4] < 10 else ':') + str(horario[4]), "da", condHorario(horario[3]), "em", sistema.capitalize())
 		
 		DifTempo = (time.time()) - TempoBoot
 		HorasLigado = int(DifTempo // 3600)
 		MinutosLigado = int((DifTempo // 60)) if HorasLigado < 1 else int((DifTempo - (HorasLigado * 3600)) / 60)
-		SegundosLigado = int((DifTempo)) if MinutosLigado < 1 else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
-		print("Uptime em " + sistema.capitalize() + (': 0' if HorasLigado < 10 else ': ') + (str(HorasLigado) + (':0' if MinutosLigado < 10 else ':') + str(MinutosLigado) + (':0' if SegundosLigado < 10 else ':') + str(SegundosLigado)))
+		SegundosLigado = int((DifTempo)) if (MinutosLigado < 1 or HorasLigado < 1) else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
+		print("Uptime em " + sistema['tipoSistema'].capitalize() + (': 0' if HorasLigado < 10 else ': ') + (str(HorasLigado) + (':0' if MinutosLigado < 10 else ':') + str(MinutosLigado) + (':0' if SegundosLigado < 10 else ':') + str(SegundosLigado)))
 
 		qtdTarefas = len(psutil.pids())
 		print(qtdTarefas, "processos em execução no momento\n")
 
-		if sistema == 'linux' and not isWsl:
+		if sistema['tipoSistema'] == 'linux' and sistema['tipoSistema'] != 'wsl':
 			tempCPU = psutil.sensors_temperatures(fahrenheit=False)
 			tempCPU = tempCPU.get('coretemp')
 			print("Temperatura do CPU:", int(tempCPU[0][1]), "ºC")
 	
-		if not isWsl:
-			freqCPU = psutil.cpu_freq()
+		if sistema['tipoSistema'] != 'wsl':
+			freqCPU = psutil.cpu_freq() #TODO: colocar frequencia por CPU (se tiver no psutil)
 			print("Frequência do CPU:", int(freqCPU[0]), "MHz de", int(freqCPU[2]), "MHz")
 
 		if porCPU:
@@ -108,7 +100,7 @@ def main():
 		print("Uso do SWAP:", usoGBswap, "GB de", round((totalswap / (2**30)),2), "GB")
 		print(barraUso(swapRAM[3], swapRAM[3]))
 
-		if not isWsl:
+		if sistema['tipoSistema'] != 'wsl':
 
 			lidaAtual = psutil.disk_io_counters()
 
@@ -128,15 +120,16 @@ def main():
 			sdaLido = False
 			infoHD = psutil.disk_partitions()
 			for part in range(len(infoHD)):
-				ordemNum = 97
 				if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
 					usoHD = psutil.disk_usage(infoHD[part][1]) # uso de 'sda1'
 					sdTot = [0]
 
 					if sys.platform == 'linux':
+						ordemNum = ord(infoHD[part][0][-2])
 						for i in range(len(infoHD)):
 							if ('sd' + chr(ordemNum)) in infoHD[i][0]:
 								sdTot[0] += usoHD[1]
+								ordemNum += 1
 								if 'sda' in infoHD[i][0] and not sdaLido:
 									sdTot[0] += swapRAM[0]
 									sdaLido = True
@@ -145,9 +138,8 @@ def main():
 									print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) + " :"), round(sdTot[0] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
 						usoPercent = round(((1 - ((usoHD[0] - sdTot[0]) / usoHD[0])) * 100),1) #TODO: ARRUMAR QUANDO FOR PARTIÇÃO '/' ADICIONAR O SWAP QUE USA DO DISCO.
 						print(barraUso(usoPercent, usoPercent))
-						ordemNum += 1
 					else:
-						print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) if not sistema == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+						print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) if not sistema['tipoSistema'] == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
 						print(barraUso(usoHD[3], usoHD[3]))
 					
 					
@@ -165,6 +157,19 @@ def main():
 			print("Taxa Upload:", conversaoMetricas[0], conversaoMetricas[1])
 			
 			netAntiga = netAtual
+
+			try:
+				import subprocess, re
+				cmd1 = 'nvidia-smi --query-gpu="temperature.gpu" --format=csv'
+				cmd2 = 'nvidia-smi --query-gpu="utilization.gpu" --format=csv'
+				saida1 = subprocess.check_output(cmd1, shell=True).decode("utf-8")
+				saida2 = subprocess.check_output(cmd2, shell=True).decode("utf-8")
+				saida1arr = re.split(r'(\W+)', saida1)
+				saida2arr = re.split(r'(\W+)', saida2)
+				print("\nTemperatura da GPU: " + saida1arr[4] + " ºC")
+				print("Uso de GPU: " + barraUso(int(saida2arr[4]), int(saida2arr[4]), 4))
+			except:
+				print("", end="")
 
 		print("-" * os.get_terminal_size()[0])
 	
