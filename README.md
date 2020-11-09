@@ -6,6 +6,7 @@ Dependecies:
 * python 3.6+
 * pip 20+
 * psutil 5+
+* GPUtil 1.4+
 
 ### Linux:
 #### Debian-based and Ubuntu:
@@ -13,3 +14,4 @@ Dependecies:
 * sudo apt install python3-dev python3-pip
 * python3 -m pip install -U pip
 * python3 -m pip install psutil
+* python3 -m pip install GPUtil

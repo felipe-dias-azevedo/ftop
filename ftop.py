@@ -1,4 +1,4 @@
-import psutil, time, sys, os
+import psutil, GPUtil, time, sys, os, subprocess, re
 
 def convert(tipoDado):
 	if tipoDado >= 1000 and tipoDado < 1000000:
@@ -6,7 +6,7 @@ def convert(tipoDado):
 		Metrica = "KiB/s"
 	elif tipoDado >= 1000000:
 		tipoDado = round((tipoDado / (2**20)),2)
-		Metrica = "MiB/s"		
+		Metrica = "MiB/s"
 	else:
 		Metrica = "Bytes/s"
 	return [tipoDado, Metrica]
@@ -59,13 +59,13 @@ def main():
 		time.sleep(1) # EXECUTA A CADA 1 SEGUNDO
 		horario = time.localtime()
 		os.system(sistema['limpar'])
-		
+
 		#print(('0' if horario[3] < 10 else '') + str(horario[3]) + (':0' if horario[4] < 10 else ':') + str(horario[4]), "da", condHorario(horario[3]), "em", sistema.capitalize())
-		
+
 		DifTempo = (time.time()) - TempoBoot
 		HorasLigado = int(DifTempo // 3600)
 		MinutosLigado = int((DifTempo // 60)) if HorasLigado < 1 else int((DifTempo - (HorasLigado * 3600)) / 60)
-		SegundosLigado = int((DifTempo)) if (MinutosLigado < 1 or HorasLigado < 1) else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
+		SegundosLigado = int((DifTempo)) if (MinutosLigado < 1 or (HorasLigado < 1 and MinutosLigado < 1)) else int((DifTempo - ((MinutosLigado * 60) + (HorasLigado * 3600))))
 		print("Uptime em " + sistema['tipoSistema'].capitalize() + (': 0' if HorasLigado < 10 else ': ') + (str(HorasLigado) + (':0' if MinutosLigado < 10 else ':') + str(MinutosLigado) + (':0' if SegundosLigado < 10 else ':') + str(SegundosLigado)))
 
 		qtdTarefas = len(psutil.pids())
@@ -74,8 +74,9 @@ def main():
 		if sistema['tipoSistema'] == 'linux' and sistema['tipoSistema'] != 'wsl':
 			tempCPU = psutil.sensors_temperatures(fahrenheit=False)
 			tempCPU = tempCPU.get('coretemp')
-			print("Temperatura do CPU:", int(tempCPU[0][1]), "ºC")
-	
+			if bool(tempCPU):
+				print("Temperatura do CPU:", int(tempCPU[0][1]), "ºC")
+
 		if sistema['tipoSistema'] != 'wsl':
 			freqCPU = psutil.cpu_freq() #TODO: colocar frequencia por CPU (se tiver no psutil)
 			print("Frequência do CPU:", int(freqCPU[0]), "MHz de", int(freqCPU[2]), "MHz")
@@ -114,7 +115,7 @@ def main():
 			conversaoMetricas = convert(BytesEscritos)
 			print("Escritura do HD:", conversaoMetricas[0], conversaoMetricas[1])
 			print("")
-			
+
 			lidaAntiga = lidaAtual
 
 			sdaLido = False
@@ -122,9 +123,10 @@ def main():
 			for part in range(len(infoHD)):
 				if ('snap' not in infoHD[part][1] and 'cdrom' not in infoHD[part][3]):
 					usoHD = psutil.disk_usage(infoHD[part][1]) # uso de 'sda1'
+					""" TODO: resolver erro de duplicar primeira partição
+					
 					sdTot = [0]
-
-					if sys.platform == 'linux':
+					if sistema['tipoSistema'] == 'linux':
 						ordemNum = ord(infoHD[part][0][-2])
 						for i in range(len(infoHD)):
 							if ('sd' + chr(ordemNum)) in infoHD[i][0]:
@@ -141,8 +143,12 @@ def main():
 					else:
 						print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) if not sistema['tipoSistema'] == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
 						print(barraUso(usoHD[3], usoHD[3]))
-					
-					
+					"""
+
+					print("Ocupação de", infoHD[part][1], (("em " + infoHD[part][0]) if not sistema['tipoSistema'] == 'windows' else '') + ":", round(usoHD[1] / (2**30),2), "GB de", round(usoHD[0] / (2**30),2), "GB")
+					print(barraUso(usoHD[3], usoHD[3]))
+
+
 
 			netAtual = psutil.net_io_counters()
 
@@ -155,22 +161,17 @@ def main():
 			conversaoMetricas = convert(BytesEnviados)
 			#convert("Taxa Upload:", BytesEnviados)
 			print("Taxa Upload:", conversaoMetricas[0], conversaoMetricas[1])
-			
+
 			netAntiga = netAtual
 
-			try:
-				import subprocess, re
-				cmd1 = 'nvidia-smi --query-gpu="temperature.gpu" --format=csv'
-				cmd2 = 'nvidia-smi --query-gpu="utilization.gpu" --format=csv'
-				saida1 = subprocess.check_output(cmd1, shell=True).decode("utf-8")
-				saida2 = subprocess.check_output(cmd2, shell=True).decode("utf-8")
-				saida1arr = re.split(r'(\W+)', saida1)
-				saida2arr = re.split(r'(\W+)', saida2)
-				print("\nTemperatura da GPU: " + saida1arr[4] + " ºC")
-				print("Uso de GPU: " + barraUso(int(saida2arr[4]), int(saida2arr[4]), 4))
-			except:
-				print("", end="")
+			GPUs = GPUtil.getGPUs()
+			if bool(GPUs):
+				for gpu in GPUs:
+					print("\nTemperatura da GPU:", gpu.temperature, "ºC")
+					print("Uso de GPU: " + barraUso(round(gpu.load * 100), round(gpu.load * 100), 4))
+					print("Uso de VRAM:", round((gpu.memoryUsed / 2**10),2), "GB de", round((gpu.memoryTotal / 2**10),2), "GB")
+					print(barraUso(round(gpu.memoryUtil * 100), round(gpu.memoryUtil * 100), 4))
+					
+			print("-" * os.get_terminal_size()[0])
 
-		print("-" * os.get_terminal_size()[0])
-	
 main()
